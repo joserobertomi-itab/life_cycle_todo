@@ -1,0 +1,6 @@
+{
+  "name": "Lifecycle Log",
+  "description": "An Android application featuring 4 screens navigable via Jetpack Navigation, tracking and logging Activity lifecycle state updates and navigation backstack events in real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
