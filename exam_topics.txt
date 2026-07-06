@@ -1,0 +1,9 @@
+Lembre-se de deixar a conta Spark do firebase ativada para avaliação.
+
+Autenticação de Usuário (25%): Implementação completa do fluxo de login,
+cadastro e gerenciamento de sessão.
+● Perfil do Usuário (25%): Criação do perfil no Firestore no momento do cadastro e
+exibição correta dos dados.
+● Feed de Publicações (25%): Exibição da lista de publicações em tempo real.
+● Criação de Publicações (25%): Funcionalidade de upload de imagem e
+persistência da publicação no banco de dados
