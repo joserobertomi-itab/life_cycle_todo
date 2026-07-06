@@ -77,3 +77,24 @@
 
 **Atenção para os extras:**
 - Exclusão/likes/comentários exigem regras novas no Firestore (delete/update em `posts`, subcoleção `comments`) — entregar regras completas ao usuário no item 6.6.
+
+## 2026-07-06 — Sessão 1 (cont. 5): extras 6.1–6.5 implementados (aguardando teste)
+
+**Feito (tudo compilando, `assembleDebug` ok):**
+- **Curtidas**: campo `curtidas` (lista de uids) no documento do post; `arrayUnion`/`arrayRemove`; coração preenchido/contorno + contagem no item do feed. Posts antigos sem o campo funcionam (lista vazia; `arrayUnion` cria o campo).
+- **Exclusão**: ícone de lixeira só nos posts do próprio autor + AlertDialog de confirmação; erros de ação (curtir/excluir) viram Snackbar no feed (`erroAcao` separado do fluxo do feed para não complicar o `stateIn`).
+- **Comentários**: subcoleção `posts/{id}/comments` em tempo real (mais antigo primeiro), rota `comentarios/{idPublicacao}` (id via SavedStateHandle), TelaComentarios com campo + botão enviar.
+- **Edição de perfil**: nome editável + foto de perfil (Base64 256px/≤100 KB no doc `users`); botão "Salvar alterações" só aparece se houve mudança. ⚠️ Limitação conhecida: renomear NÃO atualiza o `nomeAutor` desnormalizado dos posts antigos (decisão: aceitável para o escopo; corrigir só se o avaliador exigir).
+- **Compressão extraída** para `data/CompressorDeImagem.kt` (usada por post 720px/600KB e foto de perfil 256px/100KB); `decodificarBase64` compartilhado em `ui/telas/Imagens.kt`.
+
+**Pendente:**
+- Usuário publicar as regras novas no Console (delete/update em posts + comments) — sem isso, curtir/excluir/comentar falham quando o modo de teste expirar (hoje ainda funcionam pelas regras abertas).
+- Teste de ponta a ponta dos extras pelo usuário → aí marcar 6.1–6.5 no todo.md e commitar os extras.
+
+## 2026-07-06 — Sessão 1 (cont. 6): extras verificados e commitados ✅ TRABALHO COMPLETO
+
+- Usuário testou todos os extras no dispositivo: curtidas, exclusão, comentários, edição de perfil — **tudo OK**.
+- **Regras definitivas publicadas no Console** (não estão mais no modo de teste; sem prazo de expiração).
+- todo.md: seções 0–6 completas. Extras commitados.
+
+**Critério de parada atingido**: todos os itens do todo.md verificados, 4 critérios + 5 extras funcionais de ponta a ponta, app compila e roda no plano Spark. Restam apenas a apresentação em sala (instruções de entrega do PDF).

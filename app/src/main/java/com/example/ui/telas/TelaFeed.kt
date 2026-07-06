@@ -1,10 +1,10 @@
 package com.example.ui.telas
 
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,16 +26,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,7 +49,8 @@ import com.example.data.Publicacao
 
 /**
  * Tela principal (Feed): lista as publicações de todos os usuários em tempo
- * real, da mais nova para a mais antiga.
+ * real, da mais nova para a mais antiga. Extras: curtir, comentar e excluir
+ * a própria publicação.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,9 +58,40 @@ fun TelaFeed(
     aoSair: () -> Unit,
     aoAbrirPerfil: () -> Unit,
     aoNovaPublicacao: () -> Unit,
+    aoAbrirComentarios: (idPublicacao: String) -> Unit,
     feedViewModel: FeedViewModel = viewModel(),
 ) {
     val estado by feedViewModel.estado.collectAsStateWithLifecycle()
+    val erroAcao by feedViewModel.erroAcao.collectAsStateWithLifecycle()
+    val avisos = remember { SnackbarHostState() }
+    var publicacaoParaExcluir by remember { mutableStateOf<Publicacao?>(null) }
+
+    // Erros de ações pontuais (curtir/excluir) viram um aviso passageiro.
+    LaunchedEffect(erroAcao) {
+        erroAcao?.let {
+            avisos.showSnackbar(it)
+            feedViewModel.limparErroAcao()
+        }
+    }
+
+    publicacaoParaExcluir?.let { publicacao ->
+        AlertDialog(
+            onDismissRequest = { publicacaoParaExcluir = null },
+            title = { Text("Excluir publicação?") },
+            text = { Text("Essa ação não pode ser desfeita.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        feedViewModel.excluir(publicacao)
+                        publicacaoParaExcluir = null
+                    },
+                ) { Text("Excluir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { publicacaoParaExcluir = null }) { Text("Cancelar") }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -71,6 +110,7 @@ fun TelaFeed(
                 Icon(Icons.Filled.Add, contentDescription = "Nova publicação")
             }
         },
+        snackbarHost = { SnackbarHost(avisos) },
     ) { espacamentoInterno ->
         Box(
             modifier = Modifier
@@ -91,7 +131,13 @@ fun TelaFeed(
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(estado.publicacoes, key = { it.id }) { publicacao ->
-                        ItemPublicacao(publicacao)
+                        ItemPublicacao(
+                            publicacao = publicacao,
+                            uidAtual = feedViewModel.uidAtual,
+                            aoCurtir = { feedViewModel.alternarCurtida(publicacao) },
+                            aoComentar = { aoAbrirComentarios(publicacao.id) },
+                            aoExcluir = { publicacaoParaExcluir = publicacao },
+                        )
                     }
                 }
             }
@@ -99,9 +145,15 @@ fun TelaFeed(
     }
 }
 
-/** Item do feed: nome do autor, imagem da postagem e texto da descrição. */
+/** Item do feed: autor, imagem, texto e a barra de ações (curtir, comentar, excluir). */
 @Composable
-private fun ItemPublicacao(publicacao: Publicacao) {
+private fun ItemPublicacao(
+    publicacao: Publicacao,
+    uidAtual: String?,
+    aoCurtir: () -> Unit,
+    aoComentar: () -> Unit,
+    aoExcluir: () -> Unit,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -130,17 +182,38 @@ private fun ItemPublicacao(publicacao: Publicacao) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(12.dp),
             )
-        }
-    }
-}
 
-/** Converte a imagem Base64 salva no Firestore em bitmap para o Compose. */
-private fun decodificarBase64(imagemBase64: String): ImageBitmap? {
-    if (imagemBase64.isBlank()) return null
-    return try {
-        val bytes = Base64.decode(imagemBase64, Base64.NO_WRAP)
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-    } catch (_: IllegalArgumentException) {
-        null
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            ) {
+                val curtiu = uidAtual != null && uidAtual in publicacao.curtidas
+                IconButton(onClick = aoCurtir) {
+                    Icon(
+                        imageVector = if (curtiu) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = if (curtiu) "Descurtir" else "Curtir",
+                        tint = if (curtiu) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(text = "${publicacao.curtidas.size}")
+
+                TextButton(onClick = aoComentar) { Text("Comentários") }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Só o autor pode excluir a própria publicação.
+                if (uidAtual == publicacao.uid) {
+                    IconButton(onClick = aoExcluir) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Excluir publicação",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

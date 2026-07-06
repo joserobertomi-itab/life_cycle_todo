@@ -56,9 +56,11 @@ Técnicos obrigatórios (sem peso próprio, mas exigidos):
 
 Ordem de implementação (menor esforço/risco primeiro; cada um: build + teste + atualizar regras do Firestore quando indicado):
 
-- [ ] **6.1 Tratamento de erros e carregamento**: spinners em toda busca/envio e mensagens amigáveis de erro em todas as telas (já implementado junto com os critérios 1–4; revisar cobertura e marcar). — Extra
-- [ ] **6.2 Exclusão de publicações**: autor vê botão de excluir nos próprios posts do feed, com diálogo de confirmação. Exige regra `delete` em `posts` (só o autor). — Extra
-- [ ] **6.3 Sistema de likes**: curtir/descurtir com contagem em tempo real no item do feed. Campo `likes` (lista de uids) no documento do post. Exige regra `update` em `posts`. — Extra
-- [ ] **6.4 Edição de perfil**: atualizar nome e foto de perfil na TelaPerfil (foto em Base64 no documento `users`, mesma decisão do item 0; PDF pede Storage, indisponível no Spark). — Extra
-- [ ] **6.5 Comentários**: ver e adicionar comentários por publicação (subcoleção `posts/{id}/comments`, em tempo real). Exige regras da subcoleção. — Extra
-- [ ] **6.6** Atualizar as regras definitivas do Firestore no Console cobrindo delete/update/comentários e repassar ao usuário. — Extra (ação do usuário no Console)
+- [x] **6.1 Tratamento de erros e carregamento**: spinners em toda busca/envio, mensagens amigáveis em todas as telas e Snackbar para falhas de curtir/excluir. — Extra
+- [x] **6.2 Exclusão de publicações**: lixeira só nos posts do próprio autor, com diálogo de confirmação. Regra `delete` publicada. — Extra
+- [x] **6.3 Sistema de likes**: curtir/descurtir com contagem em tempo real (campo `curtidas`, lista de uids). Regra `update` publicada. — Extra
+- [x] **6.4 Edição de perfil**: nome e foto de perfil editáveis na TelaPerfil (foto em Base64 256px no documento `users`). Limitação registrada: renomear não reescreve `nomeAutor` de posts antigos. — Extra
+- [x] **6.5 Comentários**: subcoleção `posts/{id}/comments` em tempo real + tela de comentários com envio. — Extra
+- [x] **6.6** Regras definitivas do Firestore publicadas pelo usuário no Console (users, posts com delete/update restritos, comments). — Extra
+
+Tudo acima verificado pelo usuário em dispositivo em 2026-07-06 (com as regras definitivas ativas).

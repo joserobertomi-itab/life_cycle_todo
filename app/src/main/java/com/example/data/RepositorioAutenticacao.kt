@@ -46,7 +46,21 @@ class RepositorioAutenticacao(
             uid = uid,
             nome = documento.getString("nome") ?: "",
             email = documento.getString("email") ?: "",
+            fotoBase64 = documento.getString("fotoBase64") ?: "",
         )
+    }
+
+    /**
+     * Extra do PDF (edição de perfil): atualiza o nome e, se enviada,
+     * a foto (Base64 — mesma decisão do Storage indisponível no Spark).
+     */
+    suspend fun atualizarPerfil(nome: String, fotoBase64: String?) {
+        val uid = uidAtual ?: throw IllegalStateException("Nenhum usuário logado.")
+        val mudancas = buildMap {
+            put("nome", nome)
+            if (fotoBase64 != null) put("fotoBase64", fotoBase64)
+        }
+        firestore.collection("users").document(uid).update(mudancas).await()
     }
 
     fun sair() {
@@ -59,4 +73,5 @@ data class Perfil(
     val uid: String = "",
     val nome: String = "",
     val email: String = "",
+    val fotoBase64: String = "",
 )

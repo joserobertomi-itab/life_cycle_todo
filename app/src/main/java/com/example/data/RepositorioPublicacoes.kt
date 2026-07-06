@@ -1,6 +1,7 @@
 package com.example.data
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -16,6 +17,15 @@ data class Publicacao(
     val nomeAutor: String = "",
     val texto: String = "",
     val imagemBase64: String = "",
+    val curtidas: List<String> = emptyList(), // uids de quem curtiu
+)
+
+/** Um comentário da subcoleção "comments" de uma publicação. */
+data class Comentario(
+    val id: String = "",
+    val uid: String = "",
+    val nomeAutor: String = "",
+    val texto: String = "",
 )
 
 /**
@@ -27,6 +37,9 @@ class RepositorioPublicacoes(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
+
+    val uidAtual: String?
+        get() = auth.currentUser?.uid
 
     /**
      * Feed em tempo real: emite a lista completa (mais nova primeiro)
@@ -40,16 +53,7 @@ class RepositorioPublicacoes(
                     close(erro)
                     return@addSnapshotListener
                 }
-                val publicacoes = retrato?.documents.orEmpty().map { documento ->
-                    Publicacao(
-                        id = documento.id,
-                        uid = documento.getString("uid") ?: "",
-                        nomeAutor = documento.getString("nomeAutor") ?: "",
-                        texto = documento.getString("texto") ?: "",
-                        imagemBase64 = documento.getString("imagemBase64") ?: "",
-                    )
-                }
-                trySend(publicacoes)
+                trySend(retrato?.documents.orEmpty().map(::paraPublicacao))
             }
         awaitClose { registro.remove() }
     }
@@ -60,18 +64,88 @@ class RepositorioPublicacoes(
      * O nome do autor é desnormalizado no documento para o feed não precisar de join.
      */
     suspend fun publicar(texto: String, imagemBase64: String) {
-        val uid = auth.currentUser?.uid
-            ?: throw IllegalStateException("Nenhum usuário logado.")
-        val perfil = firestore.collection("users").document(uid).get().await()
-        val nomeAutor = perfil.getString("nome") ?: "Anônimo"
+        val uid = uidLogado()
         firestore.collection("posts").add(
             mapOf(
                 "uid" to uid,
-                "nomeAutor" to nomeAutor,
+                "nomeAutor" to nomeDoUsuario(uid),
                 "texto" to texto,
                 "imagemBase64" to imagemBase64,
+                "curtidas" to emptyList<String>(),
                 "timestamp" to FieldValue.serverTimestamp(),
             ),
         ).await()
     }
+
+    /** Exclui uma publicação (a UI só oferece isso ao autor; a regra do Firestore reforça). */
+    suspend fun excluir(idPublicacao: String) {
+        firestore.collection("posts").document(idPublicacao).delete().await()
+    }
+
+    /** Curte/descurte: adiciona ou remove o uid do usuário na lista de curtidas. */
+    suspend fun alternarCurtida(publicacao: Publicacao) {
+        val uid = uidLogado()
+        val operacao = if (uid in publicacao.curtidas) {
+            FieldValue.arrayRemove(uid)
+        } else {
+            FieldValue.arrayUnion(uid)
+        }
+        firestore.collection("posts").document(publicacao.id)
+            .update("curtidas", operacao)
+            .await()
+    }
+
+    /** Comentários de uma publicação em tempo real, do mais antigo para o mais novo. */
+    fun observarComentarios(idPublicacao: String): Flow<List<Comentario>> = callbackFlow {
+        val registro = firestore.collection("posts").document(idPublicacao)
+            .collection("comments")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { retrato, erro ->
+                if (erro != null) {
+                    close(erro)
+                    return@addSnapshotListener
+                }
+                val comentarios = retrato?.documents.orEmpty().map { documento ->
+                    Comentario(
+                        id = documento.id,
+                        uid = documento.getString("uid") ?: "",
+                        nomeAutor = documento.getString("nomeAutor") ?: "",
+                        texto = documento.getString("texto") ?: "",
+                    )
+                }
+                trySend(comentarios)
+            }
+        awaitClose { registro.remove() }
+    }
+
+    /** Adiciona um comentário na subcoleção "comments" da publicação. */
+    suspend fun comentar(idPublicacao: String, texto: String) {
+        val uid = uidLogado()
+        firestore.collection("posts").document(idPublicacao)
+            .collection("comments")
+            .add(
+                mapOf(
+                    "uid" to uid,
+                    "nomeAutor" to nomeDoUsuario(uid),
+                    "texto" to texto,
+                    "timestamp" to FieldValue.serverTimestamp(),
+                ),
+            ).await()
+    }
+
+    private fun uidLogado(): String =
+        auth.currentUser?.uid ?: throw IllegalStateException("Nenhum usuário logado.")
+
+    private suspend fun nomeDoUsuario(uid: String): String =
+        firestore.collection("users").document(uid).get().await()
+            .getString("nome") ?: "Anônimo"
+
+    private fun paraPublicacao(documento: DocumentSnapshot) = Publicacao(
+        id = documento.id,
+        uid = documento.getString("uid") ?: "",
+        nomeAutor = documento.getString("nomeAutor") ?: "",
+        texto = documento.getString("texto") ?: "",
+        imagemBase64 = documento.getString("imagemBase64") ?: "",
+        curtidas = (documento.get("curtidas") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+    )
 }

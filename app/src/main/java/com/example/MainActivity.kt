@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.telas.TelaCadastro
+import com.example.ui.telas.TelaComentarios
 import com.example.ui.telas.TelaFeed
 import com.example.ui.telas.TelaLogin
 import com.example.ui.telas.TelaNovaPublicacao
@@ -27,6 +28,9 @@ object Rotas {
     const val FEED = "feed"
     const val PERFIL = "perfil"
     const val NOVA_PUBLICACAO = "novaPublicacao"
+    const val COMENTARIOS = "comentarios/{idPublicacao}"
+
+    fun comentariosDe(idPublicacao: String) = "comentarios/$idPublicacao"
 }
 
 /**
@@ -89,7 +93,13 @@ fun AppRedeSocial() {
                 aoSair = autenticacaoViewModel::sair,
                 aoAbrirPerfil = { controleNavegacao.navigate(Rotas.PERFIL) },
                 aoNovaPublicacao = { controleNavegacao.navigate(Rotas.NOVA_PUBLICACAO) },
+                aoAbrirComentarios = { idPublicacao ->
+                    controleNavegacao.navigate(Rotas.comentariosDe(idPublicacao))
+                },
             )
+        }
+        composable(Rotas.COMENTARIOS) {
+            TelaComentarios(aoVoltar = { controleNavegacao.popBackStack() })
         }
         composable(Rotas.PERFIL) {
             TelaPerfil(aoVoltar = { controleNavegacao.popBackStack() })
